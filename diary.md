@@ -107,3 +107,183 @@ ai4science run "Типы тканей определены верно, но гр
 
 Добавила в AGENTS.md указание строить сразу нормальные графики
 Графики, которые не приняты - все же удаляет
+
+
+# 2026-10-18 — Практика недели 3
+
+## Шаг 1. Ноутбук «Агент в коде»
+
+Создан график results/tissue3.png, но в плохом качестве
+Запись в diary не сделана
+
+Удалось пройти этот шаг и получить хоть какой-то результат после многих попыток
+Все падало с разными ошибками
+
+Полная версия запуска:
+```
+def head(text, n_rows=5, n_cols=8):
+    lines = text.splitlines()[:n_rows]
+    return "\n".join(",".join(l.split(",")[:n_cols]) for l in lines)
+
+MY_ENV = {
+    "data/counts_hidden.csv": "Начало файла (полный лежит на диске):\n" + head(Path("data/counts_hidden.csv").read_text()),
+    "data/meta_tissues_hidden.csv": "Начало файла (полный лежит на диске):\n" + head(Path("data/meta_tissues_hidden.csv").read_text(), 5, 5),
+}
+
+MY_TASK = ("Определить, какая ткань зашифрована под номером 3, и выделить топ-10 маркерных генов для неё. "
+           "Столбцы counts_hidden.csv — образцы, строки — гены; meta_tissues_hidden.csv — номера тканей 1–5. "
+           "Полные данные лежат на диске в data/: читай их через run_python и pandas, а не через read_file. "
+           "Построй качественный кастомизированный график и сохрани его как results/tissue3.png.")
+
+journal, context = run(MY_TASK, MY_ENV, tools=MY_TOOLS, schemas=MY_SCHEMAS, phi=my_phi, max_steps=15)
+```
+
+## Шаг 2. Статья в окне и каскадное сжатие
+
+### 2.1. Статья целиком в окне
+1. Прочитай paper/paper.txt целиком. 
+
+## 2026-10-19 14:23 — Сводка по paper/paper.txt (повторная запись)
+
+Статья: Corchete et al., Scientific Reports (2020) 10:19737,
+«Systematic comparison and assessment of RNA-seq procedures for gene
+expression quantitative analysis».
+
+Цель: сравнить 192 RNA-seq пайплайна (3 триммера × 5 алайнеров ×
+6 методов подсчёта × 3 псевдоалайнера × 8 нормализаций) по precision
+и accuracy количественной оценки экспрессии, а также 17 методов
+дифференциальной экспрессии (DE).
+
+Данные: 18 образцов из двух линий клеток множественной миеломы —
+KMS12-BM (CLA) и JJN-3 (CLB), обработанных Amiloride (T1), TG003 (T2)
+и DMSO (T0, контроль), по 3 реплики. RNA-seq на Illumina HiSeq 2500,
+paired-end 101 bp. Данные в GEO под GSE95077.
+
+Методы оценки:
+- Precision — по 107 housekeeping генам (HKg), непараметрический
+  CoV = MAD/Median.
+- Accuracy — по 32 генам, валидированным qRT-PCR (золотой стандарт),
+  корреляция Пирсона.
+- Итоговый ранг = сумма рангов precision и accuracy.
+
+Ключевые результаты:
+- Лучший пайплайн: Trimmomatic + RUM + HTSeq Union + TMM.
+- Критичные шаги — подсчёт (HTSeq) и нормализация (TMM): входят в
+  10 из 10 топ-пайплайнов.
+- Тримминг и алайнер не дают значимых различий в RGEQ.
+- Псевдоалайнеры (Salmon, Sailfish, Kallisto) хороши по precision,
+  но уступают по accuracy.
+- DE: лучший сбалансированный метод — limma trend; также хороши
+  limma voom, NOISeq FPKM, baySeq, edgeR.
+
+Релевантность проекту: статья использует данные экспрессии в 32
+здоровых тканях человека (Uhlen et al.) для отбора housekeeping генов —
+методология применима к задаче определения типов тканей по
+транскриптомным данным.
+
+2. /status — запишите заполнение окна. 
+> /status
+
+/status**Session status**
+
+- Model: gpt://b1gi39jvrih75di87rqs/deepseek-v4-flash/latest
+- Provider: openai
+- Mode: smart_approve
+- Tokens (lifetime): 204505
+- Context: 25345 / 1048576 tokens (2%)
+  ⏱ 0.01s
+  ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌ 2% 25k/1.0M
+    
+3. Три вопроса о деталях из середины статьи: число, условие опыта, ограничение метода. Ответы на них вы знаете или найдёте по PDF. 
+> How many piplines were compared to quantify raw gene expression?
+
+192 pipelines were compared to quantify raw gene expression (RGEQ).
+  ⏱ 1.57s
+  ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌ 2% 25k/1.0M
+  
+> На какой картинке показаны результаты дифференциального анализа?
+
+Результаты дифференциального анализа показаны на **Рисунке 5** (число DEG, обнаруженных 17 методами DE при трёх FDR-порогах), **Рисунке 6** (7 диагностических параметров: MCC, ACC, AUC, PPV, NPV, TPR, TNR) и **Рисунке 7** (сводка производительности 17 методов DE по трём подходам).
+  ⏱ 9.42s
+  ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌ 2% 26k/1.0M
+  
+> Как оценивалась точность пайплайнов?
+
+Точность (accuracy) пайплайнов оценивалась так:
+
+- Тестировалась на шести DMSO-обработанных контрольных образцах (CLA-T0 и CLB-T0), отдельно по каждой клеточной линии (по 3 реплики).
+- Основывалась на значениях экспрессии **32 генов**, валидированных **qRT-PCR** (золотой стандарт).
+- Для каждого гена считался **коэффициент корреляции Пирсона (r)** между данными RNA-seq и значениями Ct из qRT-PCR (функция `corr.test` из R-пакета `psych`).
+- Затем для каждого гена вычислялся ранг корреляции вдоль каждого пайплайна, и считался **медианный ранг** по генам.
+- Чем ниже ранг — тем точнее пайплайн.
+
+Итоговый ранг пайплайна = сумма рангов precision и accuracy (оба с равным весом).
+  ⏱ 3.64s
+  ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌ 2% 26k/1.0M
+    
+4. /exit.
+
+### 2.2. Каскадное сжатие 
+% bash cascade.sh paper/rna_seq_luis_et_al_2020.pdf 
+
+Готово. Главный результат статьи одной фразой записан в `memory/L3.md`.
+
+Слов: статья     9179, L1      743, L2      319, L3       36
+Дальше: заполните строку «Статья:» в memory/L1.md и таблицу сверки в memory/L2.md.
+
+### 2.3. Чтение уровней (15 мин)
+
+В memory/L1.md заполнена строка «Статья:»: авторы, название, издание, год, DOI.
+
+Прочитайте L1, L2 и L3. Удалите из L2 тезисы без страницы и общие фразы без содержания («авторы провели исследование»). L3 должна называть результат; название статьи результатом не является.
+
+L2.md:
+
+1. RNA-seq — самая мощная, надёжная и адаптируемая техника измерения экспрессии генов на уровне всего генома, но из-за сложности анализа нет консенсуса по оптимальным алгоритмам и пайплайнам (с. 1).
+2. В работе применены 192 пайплайна к 18 образцам из двух клеточных линий человека (KMS12-BM и JJN-3), проверено 17 методов дифференциальной экспрессии, валидация — qRT-PCR (с. 1).
+3. Пайплайны построены комбинациями 3 алгоритмов тримминга, 5 алайнеров, 6 методов подсчёта, 3 псевдоалайнеров и 8 подходов нормализации (с. 2).
+4. Лучшим по точности и аккуратности из 192 пайплайнов признан Trimmomatic + RUM + HTSeq Union + TMM (с. 6).
+5. Точность оценивали по 107 housekeeping генам через CoV = MAD/Median, аккуратность — по 32 генам через qRT-PCR и корреляцию Пирсона r (с. 4).
+6. Среди выравнивателей STAR дал максимум конкордантных выравниваний (медиана = 93%, MAD = 1.0), Bowtie2 — лишь 41.5% (MAD = 1.7) (с. 8).
+7. Тримминг не дал значимых различий (FDR > 0.05), тогда как подсчёт и нормализация — критические шаги пайплайна (с. 6).
+8. Наиболее точными методами дифференциальной экспрессии были limma trend, limma voom и baySeq при FDR < 0.001 (ACC = 0.78), наибольший AUC = 0.81 у baySeq (с. 8).
+9. HTSeq на уровне подсчёта и TMM на уровне нормализации входили в 10 из 10 лучших пайплайнов (с. 11).
+10. Данные доступны в GEO под идентификатором GSE95077; статья опубликована в Scientific Reports (2020) 10:19737, DOI 10.1038/s41598-020-76881-x (с. 12–13).
+
+
+
+### 2.4. Сверка
+
+| № | Тезис | Стр. | Цитата из оригинала | Итог |
+|---|---|---|---|---|
+| 2 | В работе применены 192 пайплайна к 18 образцам из двух клеточных линий человека (KMS12-BM и JJN-3), проверено 17 методов дифференциальной экспрессии, валидация — qRT-PCR (с. 1). | 1 | "In the present study, 192 pipelines using alternative methods were applied to 18 samples from two human cell lines and the performance of the results was evaluated. Raw gene expression signal was quantified by non-parametric statistics to measure precision and accuracy. Differential gene expression performance was estimated by testing 17 differential expression methods. The procedures were validated by qRT-PCR in the same samples." | сходится |
+| 6 | Среди выравнивателей STAR дал максимум конкордантных выравниваний (медиана = 93%, MAD = 1.0), Bowtie2 — лишь 41.5% (MAD = 1.7) | 8 | "STAR was the algorithm with a higher number of concordant align-ments (median=93%, MAD=1.0), closely followed by TopHat2 (Median=90.1%, MAD=2.0). On the otherhand, Bowtie2 only reached a 41.5% (MAD=1.7) of concordant alignments, showing statistically significant differences with the other four aligners (FDR < 0.05)" | сходится |
+| 8 | Наиболее точными методами дифференциальной экспрессии были limma trend, limma voom и baySeq при FDR < 0.001 (ACC = 0.78), наибольший AUC = 0.81 у baySeq | 8 | "Concerning ACC and AUC (Fig. 6b,c), the most accurate methods, that is, those with a higher ACC, were limma trend, limma voom and baySeq at FDR < 0.001 (ACC = 0.78), while the method with a greater AUC, or in other words, the method with the highest discrimination capacity, was baySeq at FDR < 0.001 (AUC = 0.81)." | сходится |
+
+
+## Шаг 3. AGENTS.md целиком
+
+AGENTS.md дописан
+Созданы файлы INDEX.md и STATUS.md
+
+В текущем проекте нет чего-то, что "агент не может знать сам"
+
+
+## Шаг 4. Файл-указатель и пометки в коде
+
+% ai4science --no-lean run "Прочитай INDEX.md. Как и где сохраняются готовые графики?"
+
+Прочитал `INDEX.md`.
+
+Готовые графики сохраняются в папку `results/` в формате PNG. Каждый файл пишет один скрипт из `src/`. Графики должны быть кастомизированы и сохранены в хорошем качестве.
+
+Конкретно по заданию (из `AGENTS.md`) в `results/` должны лежать:
+- `barplot.png` — барплот с количеством образцов на каждый из 5 типов тканей;
+- `radarplot.png` — радар плот с вероятностями принадлежности каждого зашифрованного типа к известным типам тканей;
+- `tissues_result.png` — график с результатом дешифровки пяти неизвестных типов тканей;
+- `tissues_result.csv` — таблица результата;
+- `method_list.md` — описание методов.
+
+
+% git add -A
+% git commit -m "завершена практика недели 3"
