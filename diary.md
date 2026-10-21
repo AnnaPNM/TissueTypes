@@ -365,3 +365,50 @@ git add -A && git commit -m "Граф проекта: AGENTS.md и онтоло�
 
 
 git add -A && git commit -m "завершена практика недели 4"
+
+
+# 2026-10-21 — Неделя 5. Самостоятельная практика: поиск и внешние графы знаний
+
+## Шаг 1. Ноутбук: три модели поиска
+python3 -m venv .venv-w5 && source .venv-w5/bin/activate
+python -m pip install numpy scikit-learn matplotlib sentence-transformers umap-learn jupyterlab mcp
+jupyter lab search_lab.ipynb
+
+файл my_search_report.md дополнен
+
+## Шаг 2. Модуль MCP у агента
+
+Выполнены шаги из CONNECT.md
+
+ai4science run "Вызови инструмент openalex_work для DOI 10.1021/ed061p494 и назови журнал и год."
+openalex_work research-mcp
+    work: 10.1021/ed061p494
+
+Журнал: **Journal of Chemical Education**, год: **1984**. Статья — «The development of the Arrhenius equation» (Keith J. Laidler), том 61, выпуск 6, стр. 494.
+
+## Шаг 3. Готовый пример 
+
+## Шаг 4. Литература в своём проекте
+
+4.1. Онтология и договор - обновлены файлы AGENTS.md и ontology.yaml
+
+4.2. Сообщение агенту.
+
+Собери литературу к проекту. Найди в OpenAlex пять самых цитируемых обзоров по теме
+«Tissue type determination using bulk RNA-seq data» за последние десять лет и запиши их источниками. Свяжи их с
+заметкой [[deconvolution]]. В Wikidata найди сущность «Bulk RNA sequencing» и
+запиши её идентификатор и одно свойство. Каждая запись — с запросом, которым она получена.  
+
+
+**Запросы:**
+1. `wikidata_search(text="Bulk RNA sequencing")` $\to$ ID: **Q104529377**.
+2. `wikidata_sparql(query="SELECT ?p WHERE { wd:Q104529377 ?p ?propertyValue } LIMIT 1")` $\to$ Свойство: **http://schema.org/version**.
+
+Все данные сохранены в `literature_sources.md`.
+  ⏱ 16.60s
+  ━━━━━━╌╌╌╌╌╌╌╌╌╌╌╌╌╌ 29% 9k/33k
+  
+  
+literature_sources.md - помещено в папку reports/
+
+git add -A && git commit -m "завершена практика недели 5"
