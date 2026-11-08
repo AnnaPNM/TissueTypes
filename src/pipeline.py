@@ -26,7 +26,7 @@ def cpm_log(counts, dtype=np.float64):
     CPM считается по сумме каунтов каждого ОБРАЗЦА (по столбцу, axis=0).
     """
     x = np.asarray(counts, dtype=dtype)
-    lib = x.sum(axis=0, keepdims=True)
+    lib = x.sum(axis=1, keepdims=True)
     return np.log2(x / lib * 1e6 + 1)
 
 
