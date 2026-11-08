@@ -498,4 +498,24 @@ seed=4 shuffled accuracy=0.4283
 шаг full: ПРОЙДЕН
 
 
+(shad_env) annaponomareva@Annas-MacBook-Pro-4 hw1_tissue_types_project % bash scripts/catch_error.sh
+--- до (ветка inject-orientation-bug) ---
+FAILED checks/test_props.py::test_p1_scaling_a_sample_does_not_change_cpm[0]
+FAILED checks/test_props.py::test_p1_scaling_a_sample_does_not_change_cpm[1]
+FAILED checks/test_props.py::test_p1_scaling_a_sample_does_not_change_cpm[2]
+FAILED checks/test_props.py::test_p1_scaling_a_sample_does_not_change_cpm[3]
+FAILED checks/test_props.py::test_p1_scaling_a_sample_does_not_change_cpm[4]
+FAILED checks/test_props.py::test_p2_cpm_conserves_a_million_per_sample[0] - ...
+FAILED checks/test_props.py::test_p2_cpm_conserves_a_million_per_sample[1] - ...
+FAILED checks/test_props.py::test_p2_cpm_conserves_a_million_per_sample[2] - ...
+FAILED checks/test_props.py::test_p2_cpm_conserves_a_million_per_sample[3] - ...
+FAILED checks/test_props.py::test_p2_cpm_conserves_a_million_per_sample[4] - ...
+10 failed, 34 passed in 0.24s
+exit code: 1
+--- после (ветка main) ---
+............................................                             [100%]
+44 passed in 0.17s
+exit code: 0
+
+
 
