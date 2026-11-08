@@ -412,3 +412,90 @@ openalex_work research-mcp
 literature_sources.md - помещено в папку reports/
 
 git add -A && git commit -m "завершена практика недели 5"
+
+
+
+
+# 2026-11-08 — ДЗ2
+
+ai4science run "Перепиши src/tissues.py так, чтобы нормализация, отбор генов, фолды и обучение брались из src/pipeline.py (cpm_log, prepare_features, make_folds, fit_predict_proba), логику не копируй. checks/, METHOD.md, pipeline.py не меняй. После правки запусти python src/tissues.py и python3 src/check_result.py, покажи код возврата."
+
+# 2026-11-08 — ДЗ2 (выполнение)
+
+Переписал `src/tissues.py`: нормализация (`cpm_log`), отбор генов (`prepare_features`),
+фолды (`make_folds`), обучение (`fit_predict_proba`) импортируются из `src/pipeline.py`.
+Локально остались маркерные гены и генерация артефактов. `checks/`, `METHOD.md`,
+`pipeline.py` не менялись.
+Проверка: `python src/tissues.py` → accuracy 1.0000, EXIT=0;
+`python3 src/check_result.py` → OK, EXIT=0.
+Задача «Переписать tissues.py на pipeline» → выполнена.
+
+## Прогон по шагам
+python scripts/run_experiment.py --step dry
+
+== шаг dry: тесты checks/ (фрагмент) ==
+............................................                                                                                                                                       [100%]
+44 passed in 0.21s
+seed=0 true     accuracy=1.0000
+seed=0 shuffled accuracy=0.1900
+
+настоящие 1.0000, перемешанные 0.1900 (один seed, интервала нет)
+условие 1 (точность >= 0.9): да
+условие 2 (перемешанные <= крупнейший класс + 0.1): да
+условие 3 (нижняя граница разности > 0.2): да
+
+шаг dry: ПРОЙДЕН
+
+python scripts/run_experiment.py --step smoke
+
+== шаг smoke: тесты checks/ (фрагмент) ==
+............................................                                                                                                                                       [100%]
+44 passed in 0.19s
+seed=0 true     accuracy=1.0000
+seed=0 shuffled accuracy=0.1900
+seed=1 true     accuracy=1.0000
+seed=1 shuffled accuracy=0.1800
+seed=2 true     accuracy=1.0000
+seed=2 shuffled accuracy=0.1500
+seed=3 true     accuracy=1.0000
+seed=3 shuffled accuracy=0.1900
+seed=4 true     accuracy=0.9900
+seed=4 shuffled accuracy=0.1900
+
+настоящие метки: среднее 0.9980, sd 0.0045
+перемешанные:    среднее 0.1800, sd 0.0173 (крупнейший класс 0.2000)
+парная разность: среднее 0.8180, 95 %-интервал [0.7941; 0.8419], порог 0.2
+условие 1 (точность >= 0.9): да
+условие 2 (перемешанные <= крупнейший класс + 0.1): да
+условие 3 (нижняя граница разности > 0.2): да
+
+шаг smoke: ПРОЙДЕН
+
+python scripts/run_experiment.py --step full   
+
+  
+== шаг full: тесты checks/ (полные данные) ==
+............................................                                                                                                                                       [100%]
+44 passed in 23.65s
+seed=0 true     accuracy=1.0000
+seed=0 shuffled accuracy=0.4248
+seed=1 true     accuracy=1.0000
+seed=1 shuffled accuracy=0.4333
+seed=2 true     accuracy=1.0000
+seed=2 shuffled accuracy=0.4238
+seed=3 true     accuracy=1.0000
+seed=3 shuffled accuracy=0.4260
+seed=4 true     accuracy=1.0000
+seed=4 shuffled accuracy=0.4283
+
+настоящие метки: среднее 1.0000, sd 0.0000
+перемешанные:    среднее 0.4273, sd 0.0038 (крупнейший класс 0.4369)
+парная разность: среднее 0.5727, 95 %-интервал [0.5681; 0.5774], порог 0.2
+условие 1 (точность >= 0.99): да
+условие 2 (перемешанные <= крупнейший класс + 0.1): да
+условие 3 (нижняя граница разности > 0.2): да
+
+шаг full: ПРОЙДЕН
+
+
+

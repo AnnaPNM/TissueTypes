@@ -1,11 +1,13 @@
 """Определение типов тканей по RNA-seq данным.
 
-Пайплайн:
-1. Нормализация каунтов в log2(CPM+1).
-2. Отбор топ-генов по дисперсии (маркерные гены).
-3. Классификация RandomForest + логистическая регрессия (кросс-валидация).
-4. Сопоставление классов с типами тканей по маркерным генам.
-5. Генерация артефактов: barplot, radarplot, tissues_result.png, csv, method_list.md.
+Пайплайн (нормализация, отбор генов, фолды, обучение) берётся из src/pipeline.py:
+- cpm_log: log2(CPM+1) нормализация
+- prepare_features: отбор топ-генов по дисперсии -> X (образцы x гены)
+- make_folds: стратифицированные фолды
+- fit_predict_proba: StandardScaler + PCA + логистическая регрессия
+
+Здесь остаётся только сопоставление классов с тканями по маркерным генам
+и генерация артефактов: barplot, radarplot, tissues_result.png, csv, method_list.md.
 """
 from __future__ import annotations
 
@@ -16,16 +18,12 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import StratifiedKFold, cross_val_score
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
+
+from pipeline import cpm_log, fit_predict_proba, make_folds, prepare_features
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 RESULTS = ROOT / "results"
-SRC = ROOT / "src"
 
 # Класс ткани -> название по маркерным генам (установлено по литературе)
 TISSUE_NAMES = {
@@ -36,8 +34,10 @@ TISSUE_NAMES = {
     5: "Kidney",
 }
 
-N_TOP_GENES = 2000
+N_TOP_GENES = 3000
 N_MARKERS = 30
+N_FOLDS = 5
+SEED = 0
 
 
 def load_data() -> tuple[pd.DataFrame, np.ndarray]:
@@ -48,19 +48,6 @@ def load_data() -> tuple[pd.DataFrame, np.ndarray]:
     )
     meta = meta.set_index("sample").loc[counts.columns]
     return counts, meta["Tissue_Number"].values
-
-
-def normalize(counts: pd.DataFrame) -> pd.DataFrame:
-    """log2(CPM+1) нормализация по глубине секвенирования."""
-    lib = counts.sum(axis=0)
-    cpm = counts.div(lib, axis=1) * 1e6
-    return np.log2(cpm + 1)
-
-
-def select_features(logcpm: pd.DataFrame, n: int) -> pd.DataFrame:
-    """Отбор генов с наибольшей дисперсией."""
-    top = logcpm.var(axis=1).sort_values(ascending=False).head(n).index
-    return logcpm.loc[top]
 
 
 def marker_genes(logcpm: pd.DataFrame, y: np.ndarray, n: int) -> dict[int, list[str]]:
@@ -79,25 +66,30 @@ def main() -> None:
     RESULTS.mkdir(exist_ok=True)
 
     counts, y = load_data()
-    logcpm = normalize(counts)
-    X_df = select_features(logcpm, N_TOP_GENES)
-    X = X_df.T.values
 
-    # Кросс-валидация двух классификаторов
-    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-    rf = RandomForestClassifier(n_estimators=300, random_state=42, n_jobs=-1)
-    lr = make_pipeline(
-        StandardScaler(), LogisticRegression(max_iter=2000, random_state=42)
+    # Нормализация и отбор генов — из pipeline.py.
+    # prepare_features возвращает X (образцы x k генов) и индексы выбранных генов.
+    X, gene_idx = prepare_features(counts, k=N_TOP_GENES)
+    # log2(CPM+1) для маркерных генов (та же нормализация, что в pipeline).
+    logcpm = pd.DataFrame(
+        cpm_log(counts.to_numpy()),
+        index=counts.index,
+        columns=counts.columns,
     )
-    for name, model in [("RandomForest", rf), ("LogReg", lr)]:
-        scores = cross_val_score(model, X, y, cv=cv, scoring="accuracy")
-        print(f"{name}: accuracy = {scores.mean():.4f} +/- {scores.std():.4f}")
 
-    # Финальная модель RandomForest для вероятностей
-    rf.fit(X, y)
-    proba = rf.predict_proba(X)
+    # Кросс-валидация и обучение — из pipeline.py.
+    folds = make_folds(y, n_splits=N_FOLDS, seed=SEED)
+    correct = 0
+    for tr, te in folds:
+        classes, proba = fit_predict_proba(X[tr], y[tr], X[te], seed=SEED)
+        correct += int((classes[proba.argmax(axis=1)] == y[te]).sum())
+    acc = correct / len(y)
+    print(f"Pipeline (StandardScaler+PCA+LogReg): accuracy = {acc:.4f}")
 
-    # Маркерные гены и определение тканей
+    # Финальная модель на всех данных для вероятностей.
+    classes, proba = fit_predict_proba(X, y, X, seed=SEED)
+
+    # Маркерные гены и определение тканей.
     markers = marker_genes(logcpm, y, N_MARKERS)
 
     # --- barplot: число образцов на ткань ---
@@ -192,15 +184,17 @@ def main() -> None:
 
 ## 1. Нормализация данных
 RNA-seq каунты нормализованы в **log2(CPM+1)** (counts per million), чтобы
-скомпенсировать разную глубину секвенирования образцов.
+скомпенсировать разную глубину секвенирования образцов (функция `cpm_log` из
+`src/pipeline.py`).
 
 ## 2. Отбор признаков
 Выбраны **{N_TOP_GENES} генов** с наибольшей дисперсией log2(CPM) — они
-несут основную тканеспецифичную информацию.
+несут основную тканеспецифичную информацию (функция `prepare_features` из
+`src/pipeline.py`).
 
 ## 3. Классификация
-- **RandomForest** (300 деревьев): accuracy = 0.9998 (5-fold CV)
-- **Логистическая регрессия** (после StandardScaler): accuracy = 0.9998 (5-fold CV)
+- **StandardScaler + PCA + логистическая регрессия** (функция `fit_predict_proba`
+  из `src/pipeline.py`): accuracy = {acc:.4f} ({N_FOLDS}-fold CV, стратифицированная).
 
 ## 4. Определение типов тканей
 Для каждого класса выделены топ-{N_MARKERS} маркерных генов по разнице средних
@@ -216,7 +210,7 @@ log2(CPM) с остальными классами. По известным тк
 | 5 | Kidney | UMOD, AQP2, SLC12A1, SLC12A3, NPHS2, PAX2, PAX8, CDH16 |
 
 ## 5. Верификация
-- Кросс-валидация (5-fold, стратифицированная) подтверждает точность ~100%.
+- Кросс-валидация ({N_FOLDS}-fold, стратифицированная) подтверждает точность ~100%.
 - Маркерные гены каждого класса однозначно соответствуют известным
   тканеспецифичным генам.
 
